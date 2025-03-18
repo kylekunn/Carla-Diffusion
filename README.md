@@ -41,7 +41,7 @@ Afterwards, please modify the `carla_sh_path` in `config/train_rl.yaml` to yours
 ### (Option 1) Downloading the data 📦
 
 ```shell
-gdown 1JfHD3bW0oBrjwQJ-nZz5GhVfLN7Nkn8R -O data.zip
+wget https://huggingface.co/datasets/Justin900/carla_image_and_path/resolve/main/data.zip
 unzip -q data.zip && rm data.zip
 ```
 
