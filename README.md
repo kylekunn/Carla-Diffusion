@@ -117,9 +117,9 @@ We provide our pre-trained model for users to evaluate the performance on the Ca
 
 | Model                                | Link                                                                                           |
 | :----------------------------------- | :--------------------------------------------------------------------------------------------- |
-| Classifier-free guidance             | [drive](https://drive.google.com/file/d/12jZFmxaNRq2NhY2cHL95KvydbEuiJH4Y/view?usp=sharing)    |
-| Classifier guidance                  | [drive](https://drive.google.com/file/d/1FZT1XsSuTUN5MawNsJaFNbBIt2xwPLgA/view?usp=drive_link) |
-| Classifier guidance (with more data) | [drive](https://drive.google.com/file/d/1_a3fjs9M6MS4ofQuyStn3flT1kS_lbMC/view?usp=drive_link) |
+| Classifier-free guidance             | [link](https://github.com/Justin900429/autonomous_driving_with_diffusion_model/releases/download/v0.0.0/free_guidance_plus.pth)    |
+| Classifier guidance                  | [link](https://github.com/Justin900429/autonomous_driving_with_diffusion_model/releases/download/v0.0.0/classifier_guidance.pth) |
+| Classifier guidance (with more data) | [link](https://github.com/Justin900429/autonomous_driving_with_diffusion_model/releases/download/v0.0.0/classifier_guidance_plus.pth) |
 
 ```shell
 mkdir checkpoints
