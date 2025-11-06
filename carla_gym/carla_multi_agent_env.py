@@ -1,5 +1,6 @@
 import logging
 import random
+import socket
 import time
 
 import carla
@@ -27,6 +28,18 @@ def get_random_seed():
         + ((t & 0x000000FF) << 24)
     )
     return t
+
+
+def wait_for_port(host, port, timeout=30):
+    """Wait for a port to be ready before connecting."""
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        try:
+            with socket.create_connection((host, port), 1):
+                return
+        except:
+            time.sleep(0.2)
+    raise RuntimeError(f"CARLA RPC port {host}:{port} not ready after {timeout}s")
 
 
 class CarlaMultiAgentEnv(gym.Env):
@@ -240,8 +253,31 @@ class CarlaMultiAgentEnv(gym.Env):
             self.clean()
             self.tm.set_synchronous_mode(False)
             self.set_sync_mode(False, set_tm=False)
+        
         current_map = random.choice(self.carla_map)
-        self.world = self.client.load_world(current_map)
+        
+        # Safe load_world: wait for RPC ready, do empty handshake, wait for GL context
+        logger.debug(f"Loading map: {current_map}")
+        
+        # Get current world for empty handshake
+        world = self.client.get_world()
+        
+        # Wait 2 seconds for UE4 to build GL context
+        time.sleep(2)
+        
+        # Check if we need to load a different map
+        # Convert map name format if needed (e.g., "Town05" -> "/Game/Carla/Maps/Town05")
+        current_map_path = current_map
+        if not current_map_path.startswith("/Game/Carla/Maps/"):
+            current_map_path = f"/Game/Carla/Maps/{current_map}"
+        
+        if world.get_map().name != current_map_path:
+            logger.debug(f"Current map is {world.get_map().name}, loading {current_map_path}")
+            self.world = self.client.load_world(current_map)
+        else:
+            logger.debug(f"Map {current_map_path} already loaded")
+            self.world = world
+        
         self.tm.set_random_device_seed(get_random_seed())
         self.remake_task()
         self.wt_handler = WeatherHandler(self.world)
@@ -249,14 +285,19 @@ class CarlaMultiAgentEnv(gym.Env):
         self.set_no_rendering_mode(self.world, self.no_rendering)
 
     def _init_client(self, host, port):
+        # Wait for RPC port to be ready before connecting
+        logger.info(f"Waiting for CARLA RPC port {host}:{port} to be ready...")
+        wait_for_port(host, port, timeout=30)
+        
         client = None
         while client is None:
             try:
-                client = carla.Client(host, port)
-                client.set_timeout(60.0)
+                # Use worker_threads=0 to avoid multi-threading race conditions
+                client = carla.Client(host, port, worker_threads=0)
+                client.set_timeout(30.0)
             except RuntimeError as re:
                 if "timeout" not in str(re) and "time-out" not in str(re):
-                    print("Could not connect to Carla server because:", re)
+                    logger.warning(f"Could not connect to Carla server because: {re}")
                 client = None
 
         self.client = client

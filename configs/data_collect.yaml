@@ -13,5 +13,5 @@ actors:
       entry_point: terminal.valeo_no_det_px:ValeoNoDetPx
       kwargs: {}
 ev_id: hero
-carla_sh_path: /home/justin/Documents/Carla/CarlaUE4.sh
+carla_sh_path: /home/kun/Downloads/CARLA_Latest/CarlaUE4.sh
 kill_running: true
