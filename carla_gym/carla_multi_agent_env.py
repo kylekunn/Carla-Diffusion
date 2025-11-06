@@ -1,4 +1,3 @@
-import logging
 import random
 import socket
 import time
@@ -15,8 +14,6 @@ from .core.zombie_vehicle.zombie_vehicle_handler import ZombieVehicleHandler
 from .core.zombie_walker.zombie_walker_handler import ZombieWalkerHandler
 from .utils.dynamic_weather import WeatherHandler
 from .utils.traffic_light import TrafficLightHandler
-
-logger = logging.getLogger(__name__)
 
 
 def get_random_seed():
@@ -138,22 +135,16 @@ class CarlaMultiAgentEnv(gym.Env):
         TrafficLightHandler.reset(self.world)
 
         self.wt_handler.reset(self.task["weather"])
-        logger.debug("wt_handler reset done!!")
 
         ev_spawn_locations = self.ev_handler.reset(self.task["ego_vehicles"])
-        logger.debug("ev_handler reset done!!")
 
         self.sa_handler.reset(self.task["scenario_actors"], self.ev_handler.ego_vehicles)
-        logger.debug("sa_handler reset done!!")
 
         self.zw_handler.reset(self.task["num_zombie_walkers"], ev_spawn_locations)
-        logger.debug("zw_handler reset done!!")
 
         self.zv_handler.reset(self.task["num_zombie_vehicles"], ev_spawn_locations)
-        logger.debug("zv_handler reset done!!")
 
         self.om_handler.reset(self.ev_handler.ego_vehicles)
-        logger.debug("om_handler reset done!!")
 
         self.world.tick()
 
@@ -257,8 +248,6 @@ class CarlaMultiAgentEnv(gym.Env):
         current_map = random.choice(self.carla_map)
         
         # Safe load_world: wait for RPC ready, do empty handshake, wait for GL context
-        logger.debug(f"Loading map: {current_map}")
-        
         # Get current world for empty handshake
         world = self.client.get_world()
         
@@ -266,16 +255,39 @@ class CarlaMultiAgentEnv(gym.Env):
         time.sleep(2)
         
         # Check if we need to load a different map
-        # Convert map name format if needed (e.g., "Town05" -> "/Game/Carla/Maps/Town05")
-        current_map_path = current_map
-        if not current_map_path.startswith("/Game/Carla/Maps/"):
-            current_map_path = f"/Game/Carla/Maps/{current_map}"
+        # Extract base map name for comparison (handle different formats)
+        current_map_name = world.get_map().name
         
-        if world.get_map().name != current_map_path:
-            logger.debug(f"Current map is {world.get_map().name}, loading {current_map_path}")
-            self.world = self.client.load_world(current_map)
+        # Normalize map names for comparison
+        # CARLA map names can be in formats like:
+        # - "Town04"
+        # - "Carla/Maps/Town04"
+        # - "/Game/Carla/Maps/Town04"
+        def normalize_map_name(map_name):
+            """Extract base map name from various formats."""
+            if not map_name:
+                return ""
+            # Remove path prefixes
+            if "/" in map_name:
+                map_name = map_name.split("/")[-1]
+            # Remove common prefixes
+            if map_name.startswith("Town"):
+                return map_name
+            return map_name
+        
+        current_map_normalized = normalize_map_name(current_map)
+        current_map_name_normalized = normalize_map_name(current_map_name)
+        
+        if current_map_name_normalized != current_map_normalized:
+            try:
+                time.sleep(1)
+                # Use original map name for load_world (CARLA handles format conversion)
+                self.world = self.client.load_world(current_map)
+                # Wait additional time after loading
+                time.sleep(1)
+            except Exception as e:
+                raise
         else:
-            logger.debug(f"Map {current_map_path} already loaded")
             self.world = world
         
         self.tm.set_random_device_seed(get_random_seed())
@@ -286,7 +298,6 @@ class CarlaMultiAgentEnv(gym.Env):
 
     def _init_client(self, host, port):
         # Wait for RPC port to be ready before connecting
-        logger.info(f"Waiting for CARLA RPC port {host}:{port} to be ready...")
         wait_for_port(host, port, timeout=30)
         
         client = None
@@ -297,7 +308,7 @@ class CarlaMultiAgentEnv(gym.Env):
                 client.set_timeout(30.0)
             except RuntimeError as re:
                 if "timeout" not in str(re) and "time-out" not in str(re):
-                    logger.warning(f"Could not connect to Carla server because: {re}")
+                    pass
                 client = None
 
         self.client = client
@@ -331,7 +342,6 @@ class CarlaMultiAgentEnv(gym.Env):
 
     def __exit__(self, exception_type, exception_value, traceback):
         self.close()
-        logger.debug("env __exit__!")
 
     def close(self):
         self.clean()
