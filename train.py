@@ -9,6 +9,7 @@ import time
 import accelerate
 import cv2
 import numpy as np
+import swanlab
 import torch
 import torch.optim as optim
 import torchvision.transforms as T
@@ -18,6 +19,7 @@ from diffusers.training_utils import EMAModel
 from loguru import logger
 from PIL import Image
 from tqdm import tqdm
+from yacs.config import CfgNode as CN
 
 from config import create_cfg, merge_possible_with_base, show_config
 from dataset import get_loader
@@ -118,10 +120,24 @@ def main(args):
     accelerator = accelerate.Accelerator(
         kwargs_handlers=[kwargs],
         gradient_accumulation_steps=cfg.TRAIN.GRADIENT_ACCUMULATION_STEPS,
-        log_with=["aim"],
+        log_with=["aim"],  # 使用 Aim
         project_config=configuration,
     )
 
+    # 初始化 SwanLab 日志记录器
+    def cfg_to_dict(cfg_node):
+        """递归将 CfgNode 转换为字典"""
+        if isinstance(cfg_node, CN):
+            return {k: cfg_to_dict(v) for k, v in cfg_node.items()}
+        else:
+            return cfg_node
+    
+    swanlab.init(
+        project=cfg.PROJECT_NAME,  # 项目名称
+        experiment_name=cfg.PROJECT_DIR,  # 使用项目目录作为实验名称
+        config=cfg_to_dict(cfg),  # 记录配置
+    )
+    
     accelerator.init_trackers(project_name=cfg.PROJECT_NAME)
     if accelerator.is_main_process:
         show_config(cfg)
@@ -277,7 +293,14 @@ def main(args):
                 f"lr: {optimizer.param_groups[-1]['lr']:.2e}\t"
                 f"{loss_meter}"
             )
-            accelerator.log(loss_meter.get_log_dict(), step=cur_iter + 1)
+            # 记录训练指标到 Aim 和 SwanLab
+            log_dict = loss_meter.get_log_dict()
+            log_dict["learning_rate"] = optimizer.param_groups[-1]['lr']
+            log_dict["iter_time"] = iter_time.val
+            log_dict["iter_time_avg"] = iter_time.avg
+            accelerator.log(log_dict, step=cur_iter + 1)
+            # 同时记录到 SwanLab
+            swanlab.log(log_dict, step=cur_iter + 1)
             start = time.time()
 
         if (

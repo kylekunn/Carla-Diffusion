@@ -1,6 +1,7 @@
 _BASE_: ../default.yaml
 PROJECT_DIR: classifier_guidance_result
 TRAIN:
+  ROOT: /home/kun/code/data
   USE_COND: CLASSIFIER_GUIDANCE
 GUIDANCE:
   USE_COND: CLASSIFIER_GUIDANCE
